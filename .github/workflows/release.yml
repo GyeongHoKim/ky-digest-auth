@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    branches: [trunk]
+
+# Only one release at a time.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create tags, GitHub releases, and push the release commit
+  issues: write # comment on released issues
+  pull-requests: write # comment on released pull requests
+  id-token: write # OIDC: npm trusted publishing + provenance (no NPM_TOKEN)
+
+jobs:
+  release:
+    name: Semantic release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs full history & tags
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        # NOTE: do NOT set `registry-url` here — it writes an .npmrc that
+        # conflicts with semantic-release's OIDC authentication.
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Update npm (OIDC trusted publishing requires npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify
+        run: |
+          npm run check:ci
+          npm run typecheck
+          npm run test
+          npm run build
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
