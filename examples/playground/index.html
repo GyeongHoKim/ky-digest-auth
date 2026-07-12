@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ky-digest-auth · Digest Auth Diagnostics</title>
+
+    <!--
+      Loads the locally built library plus its dependencies (from esm.sh).
+      Run `npm run build` in the repo root first, then serve this folder over
+      HTTP (module scripts + import maps do not work from file://):
+        npx serve examples/playground     # or: python -m http.server
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "ky": "https://esm.sh/ky@2",
+          "@noble/hashes/utils.js": "https://esm.sh/@noble/hashes@2/utils",
+          "@noble/hashes/legacy.js": "https://esm.sh/@noble/hashes@2/legacy",
+          "@noble/hashes/sha2.js": "https://esm.sh/@noble/hashes@2/sha2",
+          "@gyeonghokim/ky-digest-auth": "../../dist/index.mjs"
+        }
+      }
+    </script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --text: #1b1f24;
+        --muted: #5c6470;
+        --border: #d8dde3;
+        --accent: #0b57d0;
+        --pass: #1a7f37;
+        --fail: #cf222e;
+        --warn: #9a6700;
+        --info: #0b57d0;
+        --code-bg: #f0f2f5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --card: #161b22;
+          --text: #e6edf3;
+          --muted: #9198a1;
+          --border: #30363d;
+          --accent: #4493f8;
+          --pass: #3fb950;
+          --fail: #f85149;
+          --warn: #d29922;
+          --info: #4493f8;
+          --code-bg: #0b0f14;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        max-width: 780px;
+        margin-inline: auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.25rem;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-block-end: 1.25rem;
+      }
+      fieldset {
+        border: none;
+        margin: 0;
+        padding: 0;
+      }
+      legend {
+        font-weight: 600;
+        padding: 0;
+        margin-block-end: 0.75rem;
+      }
+      .field {
+        margin-block-end: 1rem;
+      }
+      label {
+        display: block;
+        font-weight: 500;
+        margin-block-end: 0.35rem;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        font: inherit;
+        font-size: 1rem;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.6rem 0.7rem;
+        min-height: 46px;
+      }
+      textarea {
+        min-height: 84px;
+        resize: vertical;
+      }
+      .hint {
+        display: block;
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-block-start: 0.3rem;
+      }
+      .row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .row > .field {
+        flex: 1 1 200px;
+      }
+      :focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        padding: 0.7rem 1.2rem;
+        min-height: 48px;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      button.primary[disabled] {
+        opacity: 0.6;
+        cursor: progress;
+      }
+      button.ghost {
+        background: transparent;
+        border-color: var(--border);
+        color: var(--text);
+        min-height: 34px;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.85rem;
+      }
+      details {
+        margin-block-start: 0.75rem;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 500;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+      }
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        overflow-x: auto;
+        font-size: 0.85rem;
+        margin: 0.5rem 0 0;
+      }
+      .steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.75rem;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 1.6rem 1fr;
+        gap: 0.6rem;
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        border-radius: 8px;
+        padding: 0.8rem 0.9rem;
+        background: var(--card);
+      }
+      .step[data-status="pass"] {
+        border-left-color: var(--pass);
+      }
+      .step[data-status="fail"] {
+        border-left-color: var(--fail);
+      }
+      .step[data-status="warn"] {
+        border-left-color: var(--warn);
+      }
+      .step[data-status="info"] {
+        border-left-color: var(--info);
+      }
+      .step .icon {
+        font-size: 1.1rem;
+        line-height: 1.5;
+      }
+      .step[data-status="pass"] .icon {
+        color: var(--pass);
+      }
+      .step[data-status="fail"] .icon {
+        color: var(--fail);
+      }
+      .step[data-status="warn"] .icon {
+        color: var(--warn);
+      }
+      .step[data-status="info"] .icon {
+        color: var(--info);
+      }
+      .step .label {
+        font-weight: 600;
+      }
+      .step .detail {
+        color: var(--muted);
+        font-size: 0.92rem;
+        margin-block-start: 0.15rem;
+        word-break: break-word;
+      }
+      .fix h4 {
+        margin: 0.75rem 0 0.25rem;
+        font-size: 0.9rem;
+      }
+      .copy-wrap {
+        position: relative;
+      }
+      .copy-wrap button.ghost {
+        position: absolute;
+        top: 0.4rem;
+        inset-inline-end: 0.4rem;
+      }
+      .note {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Digest Auth Diagnostics</h1>
+      <p class="lede">
+        Try HTTP Digest Authentication against your own device (CCTV, NVR, etc.) with
+        <code>@gyeonghokim/ky-digest-auth</code>, and when it fails, get told exactly
+        <strong>which server-side headers to add and how</strong>.
+      </p>
+
+      <form id="form" class="card" novalidate>
+        <fieldset>
+          <legend>Target device</legend>
+
+          <div class="field">
+            <label for="url">Endpoint URL</label>
+            <input
+              id="url"
+              name="url"
+              type="url"
+              inputmode="url"
+              required
+              placeholder="https://192.168.0.10/api/status"
+              autocomplete="url"
+            />
+            <span class="hint" id="url-hint">
+              If the device uses a self-signed HTTPS certificate, open this URL directly in
+              your browser once and trust the certificate first.
+            </span>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="method">Method</label>
+              <select id="method" name="method">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>DELETE</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="username">Username</label>
+              <input id="username" name="username" type="text" autocomplete="username" required />
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+              />
+            </div>
+          </div>
+
+          <details>
+            <summary>Advanced options</summary>
+            <div class="field" style="margin-block-start: 0.75rem">
+              <label for="preemptive" style="display: flex; gap: 0.5rem; align-items: center">
+                <input
+                  id="preemptive"
+                  name="preemptive"
+                  type="checkbox"
+                  style="width: auto; min-height: auto"
+                />
+                Preemptive mode (send the auth header on later requests without a challenge)
+              </label>
+            </div>
+            <div class="field">
+              <label for="body">Request body (POST/PUT, JSON)</label>
+              <textarea id="body" name="body" placeholder='{"enabled": true}'></textarea>
+            </div>
+          </details>
+
+          <button type="submit" class="primary" id="submit">Run diagnostics</button>
+          <p class="note" style="margin-block-end: 0">
+            Your password is used only inside this page (browser) and is never sent or stored
+            anywhere else.
+          </p>
+        </fieldset>
+      </form>
+
+      <section id="results" class="card" aria-live="polite" hidden>
+        <h2 style="margin-top: 0; font-size: 1.15rem">Diagnostics</h2>
+        <ol class="steps" id="steps"></ol>
+      </section>
+
+      <details class="card">
+        <summary style="font-size: 1.05rem">
+          Reference: CORS checklist for embedded devices (FAQ)
+        </summary>
+        <p class="note">
+          To run Digest auth from a browser against a device on a different origin, the device
+          (server) must return the CORS response headers below. Many embedded devices omit
+          them. If you cannot change the device, use a same-origin backend or reverse proxy
+          instead.
+        </p>
+        <div id="cors-reference"></div>
+      </details>
+    </main>
+
+    <script type="module">
+      import { digestAuth } from '@gyeonghokim/ky-digest-auth';
+      import ky, { HTTPError } from 'ky';
+
+      const form = document.getElementById('form');
+      const submit = document.getElementById('submit');
+      const results = document.getElementById('results');
+      const stepsList = document.getElementById('steps');
+
+      const ICONS = { pass: '✓', fail: '✗', warn: '!', info: 'ℹ' };
+
+      // --- Server-side remediation snippets, keyed by failure mode ---------------
+      const FIXES = {
+        connectivity: {
+          title: 'Check connectivity / CORS / certificate',
+          intro:
+            "The browser couldn't reach the server. Check (1) the URL and port, (2) whether a self-signed HTTPS certificate is trusted, and (3) the CORS allowed origin. For a cross-origin request the server must return the headers below.",
+          snippets: [
+            ['Response headers', 'Access-Control-Allow-Origin: https://your-app.example.com\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\nAccess-Control-Allow-Headers: Authorization, Content-Type'],
+            ['nginx', 'add_header Access-Control-Allow-Origin  "https://your-app.example.com" always;\nadd_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;\nadd_header Access-Control-Allow-Headers "Authorization, Content-Type" always;\n# Answer preflight (OPTIONS) with 204\nif ($request_method = OPTIONS) { return 204; }'],
+          ],
+        },
+        exposeHeader: {
+          title: 'Expose the WWW-Authenticate header',
+          intro:
+            'A 401 came back, but the browser could not read the WWW-Authenticate header. For a cross-origin request the server must explicitly expose this header so JavaScript can read the challenge and compute the Digest response.',
+          snippets: [
+            ['Response header', 'Access-Control-Expose-Headers: WWW-Authenticate'],
+            ['nginx', 'add_header Access-Control-Expose-Headers "WWW-Authenticate" always;'],
+            ['Apache', 'Header always set Access-Control-Expose-Headers "WWW-Authenticate"'],
+            ['Express', "res.setHeader('Access-Control-Expose-Headers', 'WWW-Authenticate');"],
+          ],
+        },
+        allowHeader: {
+          title: 'Allow the Authorization header (or wrong credentials)',
+          intro:
+            'The request was rejected even after authenticating. Either (1) the username/password is wrong, or (2) the browser blocked the Authorization request header during the CORS preflight. Check the credentials first, then add the following for cross-origin requests.',
+          snippets: [
+            ['Response headers', 'Access-Control-Allow-Headers: Authorization, Content-Type\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS'],
+            ['nginx', 'add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;\nif ($request_method = OPTIONS) { return 204; }'],
+            ['Apache', 'Header always set Access-Control-Allow-Headers "Authorization, Content-Type"'],
+          ],
+        },
+      };
+
+      const CORS_REFERENCE = [
+        ['Recommended full response headers', 'Access-Control-Allow-Origin: https://your-app.example.com\nAccess-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\nAccess-Control-Allow-Headers: Authorization, Content-Type\nAccess-Control-Expose-Headers: WWW-Authenticate'],
+      ];
+
+      // Lightweight display-only parser (the library's own parser is internal).
+      function summarizeChallenge(headerValue) {
+        const match = /Digest\s+(.*?)(?:,\s*(?:Basic|Bearer|Negotiate|NTLM)\b.*)?$/is.exec(
+          headerValue,
+        );
+        if (!match) return undefined;
+        const params = {};
+        for (const m of match[1].matchAll(/(\w+)=(?:"([^"]*)"|([^,]*))/g)) {
+          params[m[1].toLowerCase()] = m[2] ?? m[3] ?? '';
+        }
+        if (!params.realm && !params.nonce) return undefined;
+        return {
+          realm: params.realm ?? '(none)',
+          algorithm: params.algorithm ?? 'MD5',
+          qop: params.qop,
+        };
+      }
+
+      function codeBlock(text) {
+        const wrap = document.createElement('div');
+        wrap.className = 'copy-wrap';
+        const pre = document.createElement('pre');
+        pre.textContent = text;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = 'Copied ✓';
+            setTimeout(() => (btn.textContent = 'Copy'), 1500);
+          } catch {
+            btn.textContent = 'Copy failed';
+          }
+        });
+        wrap.append(pre, btn);
+        return wrap;
+      }
+
+      function renderFix(fix) {
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = `How to fix it on your server — ${fix.title}`;
+        details.append(summary);
+        const wrap = document.createElement('div');
+        wrap.className = 'fix';
+        const intro = document.createElement('p');
+        intro.className = 'note';
+        intro.textContent = fix.intro;
+        wrap.append(intro);
+        for (const [label, code] of fix.snippets) {
+          const h = document.createElement('h4');
+          h.textContent = label;
+          wrap.append(h, codeBlock(code));
+        }
+        details.append(wrap);
+        return details;
+      }
+
+      function addStep({ status, label, detail, fix }) {
+        const li = document.createElement('li');
+        li.className = 'step';
+        li.dataset.status = status;
+
+        const icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = ICONS[status];
+
+        const body = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'label';
+        title.textContent = label;
+        body.append(title);
+
+        if (detail) {
+          const d = document.createElement('div');
+          d.className = 'detail';
+          d.textContent = detail;
+          body.append(d);
+        }
+        if (fix) body.append(renderFix(FIXES[fix]));
+
+        li.append(icon, body);
+        stepsList.append(li);
+      }
+
+      async function diagnose({ url, method, username, password, preemptive, body }) {
+        stepsList.replaceChildren();
+        results.hidden = false;
+
+        // Step 1 — reachability + raw challenge (plain fetch, no credentials).
+        let raw;
+        try {
+          raw = await fetch(url, { method });
+        } catch (error) {
+          addStep({
+            status: 'fail',
+            label: 'Could not reach the server',
+            detail: `${error.name}: ${error.message}`,
+            fix: 'connectivity',
+          });
+          return;
+        }
+        addStep({ status: 'pass', label: 'Received a response', detail: `HTTP ${raw.status}` });
+
+        if (raw.status !== 401) {
+          addStep({
+            status: raw.ok ? 'warn' : 'fail',
+            label: raw.ok
+              ? 'This endpoint does not seem to require authentication'
+              : 'Unexpected status code',
+            detail: `Digest auth usually begins with a 401 + WWW-Authenticate. Got: ${raw.status}.`,
+          });
+        } else {
+          addStep({ status: 'pass', label: 'Received a 401 auth challenge' });
+
+          const wwwAuth = raw.headers.get('www-authenticate');
+          if (wwwAuth == null) {
+            addStep({
+              status: 'fail',
+              label: 'Could not read the WWW-Authenticate header',
+              detail:
+                'A 401 came back, but the browser cannot access the challenge header. For a cross-origin request the server must expose it.',
+              fix: 'exposeHeader',
+            });
+          } else {
+            addStep({
+              status: 'pass',
+              label: 'Read the WWW-Authenticate header',
+              detail: wwwAuth,
+            });
+            const summary = summarizeChallenge(wwwAuth);
+            if (!summary) {
+              addStep({
+                status: 'warn',
+                label: 'No Digest challenge found',
+                detail: 'This response has no Digest scheme (it may offer only Bearer/Basic).',
+              });
+            } else {
+              const qopText = summary.qop ? summary.qop : '(none · RFC 2069 legacy)';
+              addStep({
+                status: 'info',
+                label: 'Challenge details',
+                detail: `realm=${summary.realm} · algorithm=${summary.algorithm} · qop=${qopText}`,
+              });
+              const qopList = (summary.qop ?? '').split(',').map((s) => s.trim());
+              if (summary.qop && !qopList.includes('auth') && qopList.includes('auth-int')) {
+                addStep({
+                  status: 'warn',
+                  label: 'Only qop="auth-int" offered',
+                  detail: 'This library does not support auth-int (rare on target devices).',
+                });
+              }
+            }
+          }
+        }
+
+        // Step 2 — the real end-to-end attempt through the library.
+        try {
+          const api = ky.create({
+            hooks: digestAuth({ username, password, preemptive }),
+            retry: { limit: 2 },
+            throwHttpErrors: true,
+          });
+          const requestOptions = { method };
+          if (body && method !== 'GET' && method !== 'DELETE') {
+            requestOptions.body = body;
+            requestOptions.headers = { 'Content-Type': 'application/json' };
+          }
+          const response = await api(url, requestOptions);
+          addStep({
+            status: 'pass',
+            label: 'Digest authentication succeeded 🎉',
+            detail: `HTTP ${response.status} — the library authenticated successfully. Your server is configured correctly.`,
+          });
+        } catch (error) {
+          if (error instanceof HTTPError && error.response.status === 401) {
+            addStep({
+              status: 'fail',
+              label: 'Still 401 after authenticating — credentials or Authorization header',
+              detail:
+                'The credentials are wrong, or the browser blocked the Authorization header via CORS.',
+              fix: 'allowHeader',
+            });
+          } else if (error instanceof HTTPError) {
+            addStep({
+              status: 'fail',
+              label: `Request failed (HTTP ${error.response.status})`,
+              detail: error.message,
+            });
+          } else if (error.name === 'TypeError') {
+            addStep({
+              status: 'fail',
+              label: 'The retry request was blocked',
+              detail: `${error.name}: ${error.message}`,
+              fix: 'allowHeader',
+            });
+          } else if (/auth-int/i.test(error.message)) {
+            addStep({
+              status: 'fail',
+              label: 'qop="auth-int" is not supported',
+              detail: error.message,
+            });
+          } else {
+            addStep({ status: 'fail', label: 'Error', detail: error.message });
+          }
+        }
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+
+        const data = new FormData(form);
+        submit.disabled = true;
+        submit.textContent = 'Running…';
+        try {
+          await diagnose({
+            url: String(data.get('url')).trim(),
+            method: String(data.get('method')),
+            username: String(data.get('username')),
+            password: String(data.get('password') ?? ''),
+            preemptive: data.get('preemptive') === 'on',
+            body: String(data.get('body') ?? '').trim(),
+          });
+          results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } finally {
+          submit.disabled = false;
+          submit.textContent = 'Run diagnostics';
+        }
+      });
+
+      // Populate the always-visible CORS reference.
+      const ref = document.getElementById('cors-reference');
+      for (const [label, code] of CORS_REFERENCE) {
+        const h = document.createElement('h4');
+        h.textContent = label;
+        ref.append(h, codeBlock(code));
+      }
+    </script>
+  </body>
+</html>
