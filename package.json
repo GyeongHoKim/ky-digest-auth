@@ -1,6 +1,6 @@
 {
   "name": "@gyeonghokim/ky-digest-auth",
-  "version": "0.0.0-development",
+  "version": "0.1.0",
   "description": "HTTP Digest Authentication for Ky. Built for CCTV, NVR, and other embedded devices.",
   "keywords": [
     "ky",
