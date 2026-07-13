@@ -1,5 +1,9 @@
 # @gyeonghokim/ky-digest-auth
 
+[![npm version](https://img.shields.io/npm/v/@gyeonghokim/ky-digest-auth?label=npm)](https://www.npmjs.com/package/@gyeonghokim/ky-digest-auth)
+[![CI](https://github.com/GyeongHoKim/ky-digest-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/GyeongHoKim/ky-digest-auth/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@gyeonghokim/ky-digest-auth)](./LICENSE)
+
 HTTP Digest Authentication for [Ky](https://github.com/sindresorhus/ky).
 
 ## Install
