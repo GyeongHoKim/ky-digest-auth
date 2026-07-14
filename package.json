@@ -83,5 +83,9 @@
   "bugs": {
     "url": "https://github.com/GyeongHoKim/ky-digest-auth/issues"
   },
-  "homepage": "https://github.com/GyeongHoKim/ky-digest-auth#readme"
+  "homepage": "https://github.com/GyeongHoKim/ky-digest-auth#readme",
+  "allowScripts": {
+    "fsevents@2.3.3": true,
+    "msw@2.15.0": true
+  }
 }
