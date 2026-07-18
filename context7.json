@@ -1,0 +1,19 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "ky-digest-auth",
+  "description": "HTTP Digest Authentication for Ky. Built for CCTV, NVR, and other embedded devices.",
+  "folders": [],
+  "excludeFolders": ["src", "test", "examples", "dist", "node_modules", ".github", ".husky"],
+  "excludeFiles": ["CHANGELOG.md"],
+  "rules": [
+    "Do not disable Ky retries completely (retry.limit: 0) — Digest Authentication requires at least one retry to complete after the 401 challenge.",
+    "Use HTTPS whenever the target server supports it; Digest Authentication does not encrypt HTTP traffic.",
+    "Do not embed shared service credentials in publicly distributed browser code; use a trusted backend for fixed or privileged credentials.",
+    "The first request still requires a server challenge even when preemptive is enabled."
+  ],
+  "previousVersions": [
+    {
+      "tag": "v0.1.0"
+    }
+  ]
+}
