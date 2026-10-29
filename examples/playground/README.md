@@ -27,13 +27,13 @@ npx serve .
 
 ## What it diagnoses
 
-| Symptom | Diagnostic message | Server fix it points to |
-| --- | --- | --- |
-| Server unreachable / untrusted cert / CORS origin rejected | "Could not reach the server" | `Access-Control-Allow-Origin` etc. + trust the self-signed cert |
-| 401 arrives but the challenge can't be read | "Could not read the WWW-Authenticate header" | `Access-Control-Expose-Headers: WWW-Authenticate` |
-| Still 401 after authenticating | "credentials or Authorization header" | `Access-Control-Allow-Headers: Authorization` (+ check credentials) |
-| Only `qop="auth-int"` offered | warning | (unsupported — rare on target devices) |
-| All good | "Digest authentication succeeded 🎉" | — |
+| Symptom                                                    | Diagnostic message                           | Server fix it points to                                             |
+| ---------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| Server unreachable / untrusted cert / CORS origin rejected | "Could not reach the server"                 | `Access-Control-Allow-Origin` etc. + trust the self-signed cert     |
+| 401 arrives but the challenge can't be read                | "Could not read the WWW-Authenticate header" | `Access-Control-Expose-Headers: WWW-Authenticate`                   |
+| Still 401 after authenticating                             | "credentials or Authorization header"        | `Access-Control-Allow-Headers: Authorization` (+ check credentials) |
+| Only `qop="auth-int"` offered                              | warning                                      | (unsupported — rare on target devices)                              |
+| All good                                                   | "Digest authentication succeeded 🎉"         | —                                                                   |
 
 On success it also shows the `realm` / `algorithm` / `qop` the server requested.
 
