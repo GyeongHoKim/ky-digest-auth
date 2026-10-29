@@ -37,6 +37,19 @@ The plugin automatically:
 3. Calculates the Digest authorization response.
 4. Retries the request with the generated `Authorization` header.
 
+### Browser login dialog
+
+When a page calls a Digest-protected API on its **own origin**, browsers
+intercept the `401` and show their native login dialog, holding the request
+until the user submits it. The response never reaches Ky's hooks.
+
+To prevent this, the plugin sends every request with `credentials: 'omit'`.
+This overrides any `credentials` option you pass, and it only turns off
+browser-managed credentials: cookies are neither sent nor stored for these
+requests, and cached HTTP auth and client certificates are not used. The
+`Authorization` header computed by the plugin is still sent. Cross-origin
+requests with Ky's default credentials behave exactly as before.
+
 ## API
 
 ### `digestAuth(options)`
@@ -370,6 +383,18 @@ It does not provide:
 - Negotiate or Kerberos
 - form-based authentication
 - cookie-based session management
+
+## Development
+
+```sh
+npm install
+npx playwright install chromium # once, for the browser tests
+npm test
+```
+
+`npm test` runs the Node tests and the Chromium browser tests, including a
+check that same-origin Digest requests never trigger the browser login
+dialog.
 
 ## License
 
