@@ -234,6 +234,7 @@ const api = ky.create({
       ({ request }) => {
         request.headers.set('X-Client-Version', '1.0.0');
       },
+      ...(digestHooks.beforeRequest ?? []),
     ],
     afterResponse: [
       ({ response }) => {

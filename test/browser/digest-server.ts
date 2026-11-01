@@ -10,6 +10,10 @@ function md5(input: string): string {
   return crypto.createHash('md5').update(input, 'utf8').digest('hex');
 }
 
+/**
+ * Extract quoted and unquoted Digest parameters from the test requests'
+ * Authorization header so the server can log usernames and verify responses.
+ */
 function parseAuthorization(header: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const match of header.matchAll(/(\w+)=(?:"([^"]*)"|([^,]*))/g)) {
@@ -19,6 +23,10 @@ function parseAuthorization(header: string): Record<string, string> {
   return out;
 }
 
+/**
+ * Check the fixture username, realm, and nonce, then verify the MD5 qop=auth
+ * response using the request method and the client's Digest parameters.
+ */
 function isValid(fields: Record<string, string>, realm: string, method: string): boolean {
   if (fields.username !== DIGEST_USERNAME || fields.realm !== realm || fields.nonce !== NONCE) {
     return false;
