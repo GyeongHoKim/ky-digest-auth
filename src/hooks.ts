@@ -17,6 +17,19 @@ function originKey(url: string): string {
 }
 
 /**
+ * Copy init fields that `new Request(request, init)` resets to their defaults
+ * whenever `init` is non-empty (Fetch spec): `referrer` becomes "client" and
+ * `referrerPolicy` becomes "". `about:client` is left out because omitting
+ * `referrer` already yields the same "client" value.
+ */
+function referrerInit(request: Request): RequestInit {
+  return {
+    ...(request.referrer === 'about:client' ? {} : { referrer: request.referrer }),
+    referrerPolicy: request.referrerPolicy,
+  };
+}
+
+/**
  * Build the Ky hooks that implement HTTP Digest Authentication. All mutable
  * state (nonce counters, cached challenges) lives in this closure, so each
  * `digestAuth()` call is independent.
@@ -83,11 +96,20 @@ export function buildHooks(options: DigestAuthOptions): DigestAuthHooks {
 
     const headers = new Headers(request.headers);
     headers.set('Authorization', authorization);
-    return ky.retry({ request: new Request(request, { headers }), code: 'DIGEST_AUTH' });
+    return ky.retry({
+      request: new Request(request, { headers, ...referrerInit(request) }),
+      code: 'DIGEST_AUTH',
+    });
   };
 
+  // Browser-managed credentials stay off so a same-origin 401 reaches
+  // `afterResponse` instead of the browser's native login dialog. The
+  // `Authorization` header set by this plugin is still sent.
+  const omitCredentials: BeforeRequestHook = ({ request }) =>
+    new Request(request, { credentials: 'omit', ...referrerInit(request) });
+
   if (!preemptive) {
-    return { afterResponse: [afterResponse] };
+    return { beforeRequest: [omitCredentials], afterResponse: [afterResponse] };
   }
 
   const beforeRequest: BeforeRequestHook = ({ request }) => {
@@ -101,5 +123,5 @@ export function buildHooks(options: DigestAuthOptions): DigestAuthHooks {
     }
   };
 
-  return { beforeRequest: [beforeRequest], afterResponse: [afterResponse] };
+  return { beforeRequest: [omitCredentials, beforeRequest], afterResponse: [afterResponse] };
 }

@@ -20,23 +20,29 @@ jobs:
     name: Semantic release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # semantic-release needs full history & tags
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         # NOTE: do NOT set `registry-url` here — it writes an .npmrc that
         # conflicts with semantic-release's OIDC authentication.
+        # No package-manager cache in release builds (npm trusted publishing guidance).
         with:
-          node-version: 24
-          cache: npm
+          node-version: 26
+          package-manager-cache: false
 
-      - name: Update npm (OIDC trusted publishing requires npm >= 11.5.1)
+      # @semantic-release/npm publishes with its own bundled npm (>= 11.5.1,
+      # OIDC-capable), not this global one.
+      - name: Update global npm
         run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx --no playwright install --with-deps --only-shell chromium
 
       - name: Verify
         run: |

@@ -16,7 +16,7 @@ npm install ky @gyeonghokim/ky-digest-auth
 
 ```ts
 import ky from 'ky';
-import {digestAuth} from '@gyeonghokim/ky-digest-auth';
+import { digestAuth } from '@gyeonghokim/ky-digest-auth';
 
 const api = ky.create({
   hooks: digestAuth({
@@ -25,9 +25,7 @@ const api = ky.create({
   }),
 });
 
-const data = await api
-  .get('https://device.example.com/api/status')
-  .json();
+const data = await api.get('https://device.example.com/api/status').json();
 
 console.log(data);
 ```
@@ -39,6 +37,19 @@ The plugin automatically:
 3. Calculates the Digest authorization response.
 4. Retries the request with the generated `Authorization` header.
 
+### Browser login dialog
+
+When a page calls a Digest-protected API on its **own origin**, browsers
+intercept the `401` and show their native login dialog, holding the request
+until the user submits it. The response never reaches Ky's hooks.
+
+To prevent this, the plugin sends every request with `credentials: 'omit'`.
+This overrides any `credentials` option you pass, and it only turns off
+browser-managed credentials: cookies are neither sent nor stored for these
+requests, and cached HTTP auth and client certificates are not used. The
+`Authorization` header computed by the plugin is still sent. Cross-origin
+requests with Ky's default credentials behave exactly as before.
+
 ## API
 
 ### `digestAuth(options)`
@@ -47,7 +58,7 @@ Returns a Ky hooks configuration that handles HTTP Digest Authentication.
 
 ```ts
 import ky from 'ky';
-import {digestAuth} from '@gyeonghokim/ky-digest-auth';
+import { digestAuth } from '@gyeonghokim/ky-digest-auth';
 
 const api = ky.create({
   hooks: digestAuth({
@@ -76,14 +87,7 @@ The password used for Digest Authentication.
 Type:
 
 ```ts
-Array<
-  | 'MD5'
-  | 'MD5-sess'
-  | 'SHA-256'
-  | 'SHA-256-sess'
-  | 'SHA-512-256'
-  | 'SHA-512-256-sess'
->
+Array<'MD5' | 'MD5-sess' | 'SHA-256' | 'SHA-256-sess' | 'SHA-512-256' | 'SHA-512-256-sess'>;
 ```
 
 Optional list of allowed Digest algorithms.
@@ -151,7 +155,7 @@ This is mainly useful for deterministic tests. The default implementation uses a
 
 ```ts
 import ky from 'ky';
-import {digestAuth} from '@gyeonghokim/ky-digest-auth';
+import { digestAuth } from '@gyeonghokim/ky-digest-auth';
 
 type DeviceStatus = {
   online: boolean;
@@ -165,9 +169,7 @@ const api = ky.create({
   }),
 });
 
-const status = await api
-  .get('https://device.example.com/api/status')
-  .json<DeviceStatus>();
+const status = await api.get('https://device.example.com/api/status').json<DeviceStatus>();
 
 console.log(status.firmwareVersion);
 ```
@@ -229,12 +231,13 @@ const digestHooks = digestAuth({
 const api = ky.create({
   hooks: {
     beforeRequest: [
-      ({request}) => {
+      ({ request }) => {
         request.headers.set('X-Client-Version', '1.0.0');
       },
+      ...(digestHooks.beforeRequest ?? []),
     ],
     afterResponse: [
-      ({response}) => {
+      ({ response }) => {
         console.log(response.status);
       },
       ...(digestHooks.afterResponse ?? []),
@@ -324,9 +327,9 @@ Do not embed shared service credentials in publicly distributed browser code.
 
 Credentials used by browser JavaScript can be inspected by the current user. Browser-side Digest Authentication is appropriate when:
 
-* the user provides their own credentials;
-* the user is permitted to access those credentials; or
-* the application runs in a controlled environment with an appropriate threat model.
+- the user provides their own credentials;
+- the user is permitted to access those credentials; or
+- the application runs in a controlled environment with an appropriate threat model.
 
 Use a trusted backend for fixed or privileged service credentials.
 
@@ -336,11 +339,13 @@ Digest Authentication does not encrypt HTTP traffic. Use HTTPS whenever the targ
 
 The package requires a Fetch-compatible runtime with:
 
-* `fetch`
-* `Request`
-* `Response`
-* `Headers`
-* `crypto.getRandomValues` (for the default client nonce)
+- `fetch`
+- `Request`
+- `Response`
+- `Headers`
+- `crypto.getRandomValues` (for the default client nonce)
+
+Node.js `>= 26` is required when running outside the browser.
 
 It is intended for modern browsers and other runtimes supported by Ky.
 
@@ -355,11 +360,11 @@ than a simple truncation, so a native `SHA-512` digest cannot be reused for it.)
 Rather than relying on Web Crypto for hashing, the package computes every
 algorithm through [`@noble/hashes`](https://github.com/paulmillr/noble-hashes):
 
-| Algorithm                        | Module                     |
-| -------------------------------- | -------------------------- |
-| `MD5`, `MD5-sess`                | `@noble/hashes/legacy.js`  |
-| `SHA-256`, `SHA-256-sess`        | `@noble/hashes/sha2.js`    |
-| `SHA-512-256`, `SHA-512-256-sess`| `@noble/hashes/sha2.js`    |
+| Algorithm                         | Module                    |
+| --------------------------------- | ------------------------- |
+| `MD5`, `MD5-sess`                 | `@noble/hashes/legacy.js` |
+| `SHA-256`, `SHA-256-sess`         | `@noble/hashes/sha2.js`   |
+| `SHA-512-256`, `SHA-512-256-sess` | `@noble/hashes/sha2.js`   |
 
 `@noble/hashes` is an audited, zero-dependency, tree-shakeable library, so only
 the algorithms you actually use are included in your bundle, and every listed
@@ -372,13 +377,25 @@ This package handles HTTP Digest Authentication.
 
 It does not provide:
 
-* Basic Authentication
-* Bearer tokens
-* OAuth
-* NTLM
-* Negotiate or Kerberos
-* form-based authentication
-* cookie-based session management
+- Basic Authentication
+- Bearer tokens
+- OAuth
+- NTLM
+- Negotiate or Kerberos
+- form-based authentication
+- cookie-based session management
+
+## Development
+
+```sh
+npm install
+npx playwright install chromium # once, for the browser tests
+npm test
+```
+
+`npm test` runs the Node tests and the Chromium browser tests, including a
+check that same-origin Digest requests never trigger the browser login
+dialog.
 
 ## License
 

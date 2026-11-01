@@ -69,7 +69,7 @@ const server = setupServer(
   http.put(`${BASE}/api/config`, digestHandler('PUT')),
 );
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
